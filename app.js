@@ -36,7 +36,7 @@ var isLoginBusy = false;
             process.env.NODE_ENV === "production"
                 ? process.env.PUPPETEER_EXECUTABLE_PATH
                 : puppeteer.executablePath(),
-        headless: true,
+        headless: false,
         timeout: 120000,
         defaultViewport: { width: 1366, height: 768 },
     });
@@ -57,7 +57,7 @@ app.use(async (req, res, next) => {
 
         let pageUrl = await loginCache.get(url).page.url();
 
-        if (!pageUrl.includes(`${url}/backend/home`)) {
+        if (!pageUrl.includes(`${url}/dashboard`)) {
             await loginCache.get(url)?.page.close();
 
             loginCache.set(url, {
@@ -121,7 +121,7 @@ app.post('/register', async (req, res) => {
     const { url, username } = req.body;
 
     try {
-        const result = await register(page, url, username);
+        const result = await register(page, url, username, loginCache.get(url).password);
         if (result.success == false)
             res.status(400).json({ message: 'User registration not successful', result });
         else
