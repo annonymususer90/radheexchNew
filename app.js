@@ -9,45 +9,50 @@ const { login, register, lockUser, deposit, withdraw, resetPass } = require('./b
 require('dotenv').config();
 
 const app = express();
-const PORT = 3000;
+const PORT = 4000;
 const bodyParser = require('body-parser');
 const loginCache = new Map();
 const allowedDomains = ['http://fgpunt.com', 'https://fgpunt.com'];
 const corsOptions = {
-    origin: null,
+    origin: allowedDomains,
     methods: 'POST, GET',
     credentials: false,
     optionsSuccessStatus: 204
 };
 
 var b;
-var isLoginBusy = false;
 
-(async () => {
-    b = await puppeteer.launch({
-        args: [
-            '--disable-setuid-sandbox',
-            '--no-sandbox',
-            '--single-process',
-            '--no-zygote',
-            '--disable-gpu',
-        ],
-        executablePath:
-            process.env.NODE_ENV === "production"
-                ? process.env.PUPPETEER_EXECUTABLE_PATH
-                : puppeteer.executablePath(),
-        headless: false,
-        timeout: 120000,
-        defaultViewport: { width: 1366, height: 768 },
-    });
-})();
+puppeteer.launch({
+    args: [
+        '--disable-setuid-sandbox',
+        '--no-sandbox',
+        '--single-process',
+        '--no-zygote',
+        '--disable-gpu',
+    ],
+    executablePath:
+        process.env.NODE_ENV === "production"
+            ? process.env.PUPPETEER_EXECUTABLE_PATH
+            : puppeteer.executablePath(),
+    headless: false,
+    timeout: 120000,
+    defaultViewport: {
+        width: 1366,
+        height: 768
+    },
+}).then((browser) => { b = browser });
 
 app.use(express.json());
 app.use(bodyParser.json())
 app.use(cors(corsOptions));
 app.use(express.static('public'));
+app.use((req, res, next) => {
+    console.log('');
+    while (loginCache.get(req.body.url)?.isBusy) { }
+    next();
+});
 app.use(async (req, res, next) => {
-    if (req.path !== '/login' && req.path !== '/logs' && req.path !== '/' && req.path !== '/addsite' && req.path !== '/getlogs') {
+    if (!['/login', '/logs', '/', 'addsite', '/getlogs'].includes(req.path)) {
         const { url } = req.body;
 
         if (!isCredentialsAvailable(loginCache, url)) {
@@ -60,16 +65,11 @@ app.use(async (req, res, next) => {
         if (!pageUrl.includes(`${url}/dashboard`)) {
             await loginCache.get(url)?.page.close();
 
-            loginCache.set(url, {
-                page: await b.newPage(),
-                username: loginCache.get(url).username,
-                password: loginCache.get(url).password
-            });
-
-            if (!isLoginBusy) {
-                isLoginBusy = true;
-                await login(loginCache.get(url).page, url, loginCache.get(url).username, loginCache.get(url).password);
-                isLoginBusy = false;
+            if (pageUrl.includes('auth') || pageUrl === url) {
+                loginCache.get(url).isBusy = true;
+                let { page, username, password } = loginCache.get(url);
+                await login(page, url, username, password);
+                loginCache.get(url).isBusy = false;
             }
         }
     }
@@ -100,13 +100,16 @@ app.post('/login', async (req, res) => {
             return res.status(200).json({ message: 'admin already loggedin' });
         } else {
             const page = await b.newPage();
-            loginCache.set(url, { page: page, username: username, password: password })
+            loginCache.set(url, {
+                page: page,
+                username: username,
+                password: password,
+                isBusy: false
+            });
 
-            if (!isLoginBusy) {
-                isLoginBusy = true;
-                await login(page, url, username, password);
-                isLoginBusy = false;
-            }
+            loginCache.get(url).isBusy = true;
+            await login(page, url, username, password);
+            loginCache.get(url).isBusy = false;
 
             res.status(200).json({ message: 'login success to url ' + url });
         }
@@ -117,11 +120,12 @@ app.post('/login', async (req, res) => {
 });
 
 app.post('/register', async (req, res) => {
-    const page = await b.newPage();
     const { url, username } = req.body;
+    const searchPage = await b.newPage();
+    const page = await b.newPage();
 
     try {
-        const result = await register(page, url, username, loginCache.get(url).password);
+        const result = await register(page, searchPage, url, username, loginCache.get(url).password);
         if (result.success == false)
             res.status(400).json({ message: 'User registration not successful', result });
         else
@@ -131,6 +135,7 @@ app.post('/register', async (req, res) => {
         errorAsync(`request responded with error: ${error.message}`);
     } finally {
         page.close();
+        searchPage.close();
     }
 });
 

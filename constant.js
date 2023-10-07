@@ -1,3 +1,3 @@
 module.exports = {
-    defaultPassword: 'Abcd@332211',
+    defaultPassword: 'Abcd332211',
 }

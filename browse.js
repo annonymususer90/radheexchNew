@@ -1,59 +1,96 @@
 const { defaultPassword } = require('./constant');
 const { infoAsync, errorAsync } = require('./apputils');
 
+const TINY = 3000;
 const LOW = 60000;
 const MEDIUM = 90000;
+const HIGH = 120000;
 
 async function searchUser(page, url, username) {
     await page.goto(`${url}/clients`, { timeout: 9000 });
-    await page.waitForSelector('#root > div.bethubs > div > div > div > div > div > div:nth-child(1) > h5 > div > div.col-12.col-sm-8.col-md-8.col-lg-8.col-xl-8 > div > div:nth-child(1) > input', { timeout: 9000 })
-        .then(element => element.type(username));
-    const element = await page.waitForSelector('#example > tbody > tr:nth-child(2) > td:nth-child(1) > span:nth-child(2)', { timeout: 3000 })
-        .catch(() => false);
-    let innerText = await page.evaluate((ele) => ele.textContent, element);
-    return innerText === username;
+    await page.waitForFunction(
+        () => !!document.querySelector('#root > div > div > div > div > div > div > div > h5 > div > div > div > div > input')
+    );
+    await page.focus(
+        '#root > div > div > div > div > div > div > div > h5 > div > div > div > div > input',
+        { timeout: 9000 }
+    );
+    await page.keyboard.type(username);
+
+    await page.waitForFunction(() => !!document.querySelector('tbody > tr:nth-child(2) > td'), { timeout: TINY })
+        .catch(err => false);
+    const result = await page.evaluate(() => document.querySelector('tbody > tr:nth-child(2) > td').title)
+        .catch((err) => '');
+
+    return result === username;
 }
 
 async function login(page, url, username, password) {
     await page.goto(url, { timeout: 90000 });
-    await page.waitForSelector('body > div > div > div:nth-child(2) > div:nth-child(1) > input', { timeout: 12000 })
-        .then(element => element.type(username));
-    await page.type('#passcode', password);
-    await page.click('body > div > div > div:nth-child(2) > div:nth-child(3) > button');
-    await page.waitForNavigation({ timeout: 120000 });
+
+    await page.waitForFunction(() => !!document.querySelector('input[name="uid"]'));
+    await page.focus('input[name="uid"]');
+    await page.keyboard.type(username);
+
+    await page.waitForFunction(() => !!document.querySelector('#passcode'));
+    await page.focus('#passcode');
+    await page.keyboard.type(password);
+
+    await page.waitForFunction(() => !!document.querySelector('div.login > div:nth-child(2) button'));
+    const navPromise = page.waitForNavigation({ timeout: HIGH });
+    await page.click('div.login > div:nth-child(2) button');
+
+    await navPromise;
+
     infoAsync(`login successful, url: ${url}`);
 }
 
-async function register(page, url, username, masterPass) {
+async function register(page, searchPage, url, username, masterPass) {
     try {
-        let userFound = await searchUser(page, url, username);
+        const waitPromise = page.waitForNavigation({ timeout: HIGH });
+        await page.goto(`${url}/addclient`, { timeout: HIGH });
+        await waitPromise;
+
+        let userFound = await searchUser(searchPage, url, username);
         if (userFound)
             return { success: false, message: 'username already exist' };
-        await page.goto(`${url}/addclient`);
-        const selector = '#root > div.bethubs > div > div > div > div > div > div.row.supermaster.mt-3 > div:nth-child(1) > fieldset > div > div:nth-child(1) > div > select';
-        await page.waitForFunction(
-            selector => !!document.querySelector(selector),
-            { timeout: 70000 },
-            selector
-        );
-        await page.evaluate(`document.querySelector('#root > div.bethubs > div > div > div > div > div > div.row.supermaster.mt-3 > div:nth-child(1) > fieldset > div > div:nth-child(1) > div > select').value='Client'`);
 
+        await page.waitForFunction(() => !!document.querySelector('select[name="account_type"]'), { timeout: TINY })
+            .catch(err => console.log('1' + err.message));
+        await page.focus('select[name="account_type"]');
+        await page.keyboard.press('ArrowDown');
 
+        await page.waitForFunction(() => !!document.querySelector('input[name="client_name"]'), { timeout: TINY })
+            .catch(err => console.log('2' + err.message));
+        await page.focus('input[name="client_name"]');
+        await page.keyboard.type(username);
 
-        await page.waitForSelector('#root > div.bethubs > div > div > div > div > div > div.row.supermaster.mt-3 > div:nth-child(1) > fieldset > div > div:nth-child(2) > div > input', { timeout: 10000 })
-            .then(ele => ele.type(username));
-        await page.waitForSelector('#usrid', { timeout: 10000 })
-            .then(ele => ele.type(username));
-        await page.waitForSelector('#password', { timeout: 10000 })
-            .then(ele => ele.type(defaultPassword));
-        await page.waitForSelector('#repassword', { timeout: 10000 })
-            .then(ele => ele.type(defaultPassword));
-        await page.waitForSelector('input[name="master_password"]', { timeout: 10000 })
-            .then(ele => ele.type(masterPass + '\n'));
-        await console.log('Before waiting for navigation after form submission');
-        await page.waitForNavigation({ timeout: 12000 });
-        await console.log('after waiting for navigation after form submission');
-        return { success: true, message: 'user created' };
+        await page.waitForFunction(() => !!document.querySelector('#usrid'), { timeout: TINY })
+            .catch(err => console.log('3' + err.message));
+        await page.focus('#usrid');
+        await page.keyboard.type(username);
+
+        await page.waitForFunction(() => !!document.querySelector('#password'), { timeout: TINY })
+            .catch(err => console.log('4' + err.message));
+        await page.focus('#password');
+        await page.keyboard.type(defaultPassword);
+
+        await page.waitForFunction(() => !!document.querySelector('#repassword'), { timeout: TINY })
+            .catch(err => console.log('5' + err.message));
+        await page.focus('#repassword');
+        await page.keyboard.type(defaultPassword);
+
+        await page.waitForFunction(() => !!document.querySelector('input[name="master_password"]'), { timeout: TINY })
+            .catch(err => console.log('6' + err.message));
+        await page.focus('input[name="master_password"]');
+        await page.keyboard.type(masterPass);
+        await page.keyboard.press('Enter');
+
+        await page.waitForFunction(() => !!document.querySelector('div[role="alert"] > div:nth-child(2)'), { timeout: TINY })
+            .catch(err => console.log('7' + err.message));
+        let message = await page.evaluate(() => document.querySelector('div[role="alert"] > div:nth-child(2)').innerText);
+
+        return { success: true, message: message };
 
     } catch (error) {
         errorAsync(error.message);
