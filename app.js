@@ -34,7 +34,7 @@ puppeteer.launch({
         process.env.NODE_ENV === "production"
             ? process.env.PUPPETEER_EXECUTABLE_PATH
             : puppeteer.executablePath(),
-    headless: false,
+    headless: true,
     timeout: 120000,
     defaultViewport: {
         width: 1366,
@@ -144,7 +144,7 @@ app.post('/resetpass', async (req, res) => {
     const { url, username } = req.body;
 
     try {
-        const result = await resetPass(page, url, username);
+        const result = await resetPass(page, url, username, loginCache.get(url).password);
         if (result.success) {
             res.json({ message: result.message });
         } else {
@@ -169,7 +169,7 @@ app.post('/deposit', async (req, res) => {
 
         infoAsync(`[req] ${url}, user: ${username}, amount: ${amount}`);
         const startTime = new Date();
-        const result = await deposit(page, url, username, amount);
+        const result = await deposit(page, url, username, amount, loginCache.get(url).password);
         const endTime = new Date();
         responseTime = endTime - startTime;
         if (result.success == false) {
@@ -199,7 +199,7 @@ app.post('/withdraw', async (req, res) => {
 
         infoAsync(`[req] ${url}, user: ${username}, amount: ${amount}`);
         const startTime = new Date();
-        const result = await withdraw(page, url, username, amount);
+        const result = await withdraw(page, url, username, amount, loginCache.get(url).password);
         const endTime = new Date();
         const responseTime = endTime - startTime;
         if (result.success == false) {
@@ -222,7 +222,7 @@ app.post('/lockuser', async (req, res) => {
     const page = await b.newPage();
 
     try {
-        const result = await lockUser(page, url, username);
+        const result = await lockUser(page, url, username, loginCache.get(url).password);
         if (result.success)
             res.status(200).json({ message: 'User locked successfully', result });
         else

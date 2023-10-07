@@ -98,70 +98,101 @@ async function register(page, searchPage, url, username, masterPass) {
     }
 }
 
-async function resetPass(page, url, username) {
+async function resetPass(page, url, username, masterPass) {
     try {
-        await searchUser(page, url, username);
-        await page.click('body > main > div > table > tbody > tr:nth-child(1) > td.col.s12.hide-on-med-and-down > div > a:nth-child(6)');
+        let userFound = await searchUser(page, url, username);
+        if (!userFound)
+            return { success: false, message: 'no such username' };
 
-        await page.waitForSelector('body > div.swal-overlay.swal-overlay--show-modal > div > div.swal-text');
-        await page.evaluate(`document.querySelector('body > div.swal-overlay.swal-overlay--show-modal > div > div.swal-footer > div:nth-child(2) > button').click();`);
+        await page.waitForFunction(() => !!document.querySelector('span[title="Password Change"'));
+        await page.click('span[title="Password Change"');
 
-        await page.waitForSelector('body > main > div:nth-child(1) > div > ul > li');
-        let element = await page.$('body > main > div:nth-child(1) > div > ul > li');
-        let value = await page.evaluate(el => el.textContent, element);
+        await page.waitForFunction(() => !!document.querySelector('input[name="passcode"]'));
+        await page.focus('input[name="passcode"]');
+        await page.keyboard.type(defaultPassword);
 
-        return { success: true, message: value.trim() };
+        await page.waitForFunction(() => !!document.querySelector('input[name="repasscode"]'));
+        await page.focus('input[name="repasscode"]');
+        await page.keyboard.type(defaultPassword);
+
+        await page.waitForFunction(() => !!document.querySelector('input[name="mpassword"]'));
+        await page.focus('input[name="mpassword"]');
+        await page.keyboard.type(masterPass);
+
+        await page.waitForFunction(() => !!document.querySelector('div.modal-footer > a:nth-child(1)'));
+        await page.click('div.modal-footer > a:nth-child(1)');
+
+        await page.waitForFunction(() => !!document.querySelector('div[role="alert"] > div:nth-child(2)'), { timeout: TINY })
+        let message = await page.evaluate(() => document.querySelector('div[role="alert"] > div:nth-child(2)').innerText);
+
+        let success = (message === 'Password Updated Successfully!');
+        return {
+            success: success,
+            message: success ? `Password Update Successfully to ${defaultPassword}` : message
+        };
     } catch (error) {
         errorAsync(error.message);
         return { success: false, error: error.message };
     }
 }
 
-async function lockUser(page, url, username) {
+async function lockUser(page, url, username, masterPass) {
     try {
-        await searchUser(page, url, username);
+        let userFound = await searchUser(page, url, username);
+        if (!userFound)
+            return { success: false, message: 'no such username' };
 
-        let alreadyLocked = await page.evaluate(`document.querySelector('body > main > div > table > tbody > tr:nth-child(1) > td:nth-child(7) > a').classList.contains('red')`);
+        await page.waitForFunction(() => document.querySelector('tbody > tr:nth-child(2) > td:nth-child(8)  input'))
+        let alreadyLocked = await page.evaluate(`document.querySelector('tbody > tr:nth-child(2) > td:nth-child(8)  input').checked`);
         if (alreadyLocked) {
             return { success: true, message: 'already locked' };
         }
 
-        await page.waitForSelector(`body > main > div > table > tbody > tr:nth-child(1) > td:nth-child(7) > a`)
-            .then(element => element.click())
+        await page.evaluate(() => document.querySelector('tbody > tr:nth-child(2) > td:nth-child(8) input').click());
 
-        await page.evaluate(`
-            document.querySelector('body > div.swal-overlay.swal-overlay--show-modal > div > div.swal-footer > div:nth-child(2) > button').click()
-        `);
+        await page.waitForFunction(() => !!document.querySelector('input[name="mpassword"]'));
+        await page.focus('input[name="mpassword"]');
+        await page.keyboard.type(masterPass);
 
-        await page.waitForSelector('body > main > div:nth-child(1) > div > ul > li');
-        let element = await page.$('body > main > div:nth-child(1) > div > ul > li');
-        let value = await page.evaluate(el => el.textContent, element);
+        await page.waitForFunction(() => !!document.querySelector('div.modal-footer > a:nth-child(1)'));
+        await page.click('div.modal-footer > a:nth-child(1)');
 
-        return { success: true, message: value.trim() };
+        await page.waitForFunction(() => !!document.querySelector('div[role="alert"] > div:nth-child(2)'), { timeout: TINY })
+        let message = await page.evaluate(() => document.querySelector('div[role="alert"] > div:nth-child(2)').innerText);
+
+        return {
+            success: message.includes('Unlocked') ? false : true,
+            message: message
+        };
     } catch (error) {
         return { success: false, message: error.message };
     }
 }
 
-
-async function deposit(page, url, username, amount) {
+async function deposit(page, url, username, amount, masterPass) {
     try {
-        await searchUser(page, url, username);
-        await page.click('body > main > div > table > tbody > tr:nth-child(1) > td.col.s12.hide-on-med-and-down > div > a:nth-child(2)');
-        await page.waitForSelector('#amount', { timeout: 9000 });
+        let userFound = await searchUser(page, url, username);
+        if (!userFound)
+            return { success: false, message: 'no such username' };
 
-        let res = await page.evaluate(`
-            document.querySelector('#amount').value = ${amount};
-            document.querySelector('button[type="submit"]').click();
-        `);
+        await page.waitForFunction(() => !!document.querySelector('span[title="Deposit / Credit"'));
+        await page.click('span[title="Deposit / Credit"');
 
-        await page.waitForSelector('body > main > div:nth-child(1) > div > ul > li');
-        let element = await page.$('body > main > div:nth-child(1) > div > ul > li');
-        let value = await page.evaluate(el => el.textContent, element);
+        await page.waitForFunction(() => !!document.querySelector('input[name="amount"]'));
+        await page.focus('input[name="amount"]');
+        await page.keyboard.type(amount);
+
+        await page.waitForFunction(() => !!document.querySelector('input[name="mpassword"]'));
+        await page.focus('input[name="mpassword"]');
+        await page.keyboard.type(masterPass);
+        await page.keyboard.press('Enter');
+
+        await page.waitForFunction(() => !!document.querySelector('div[role="alert"] > div:nth-child(2)'), { timeout: TINY })
+        let message = await page.evaluate(() => document.querySelector('div[role="alert"] > div:nth-child(2)').innerText);
 
         return {
-            success: !value.includes('Insufficient'),
-            message: value.trim()
+            success: message.includes('successfully!') ? true : false,
+            message: message
         };
     } catch (error) {
         return { success: false, message: error.message };
@@ -170,22 +201,32 @@ async function deposit(page, url, username, amount) {
 
 async function withdraw(page, url, username, amount) {
     try {
-        await searchUser(page, url, username);
-        await page.click('body > main > div > table > tbody > tr:nth-child(1) > td.col.s12.hide-on-med-and-down > div > a:nth-child(3)');
-        await page.waitForSelector('#amount', { timeout: 9000 });
+        let userFound = await searchUser(page, url, username);
+        if (!userFound)
+            return { success: false, message: 'no such username' };
 
-        let res = await page.evaluate(`
-            document.querySelector('#amount').value = ${amount};
-            document.querySelector('button[type="submit"]').click();
-        `);
+        await page.waitForFunction(() => !!document.querySelector('span[title="Withdraw"'));
+        await page.click('span[title="Withdraw"');
 
-        await page.waitForSelector('body > main > div:nth-child(1) > div > ul > li');
-        let element = await page.$('body > main > div:nth-child(1) > div > ul > li');
-        let value = await page.evaluate(el => el.textContent, element);
+        await page.waitForFunction(() => !!document.querySelector('#deposite-first'));
+        let available = await page.evaluate(() => !!document.querySelector('#deposite-first').innerText);
+
+        if (parseInt(available) < parseInt(amount))
+            return { success: false, message: 'Insufficient Balance!' };
+
+        await page.focus('input[name="amount"]');
+        await page.keyboard.type(amount);
+
+        await page.waitForFunction(() => !!document.querySelector('#mpassword'));
+        await page.focus('#mpassword');
+        await page.keyboard.press('Enter');
+
+        await page.waitForFunction(() => !!document.querySelector('div[role="alert"] > div:nth-child(2)'), { timeout: TINY })
+        let message = await page.evaluate(() => document.querySelector('div[role="alert"] > div:nth-child(2)').innerText);
 
         return {
-            success: !value.includes('Insufficient'),
-            message: value.trim()
+            success: message.includes('successfully!') ? true : false,
+            message: message
         };
     } catch (error) {
         return { success: false, message: error.message };

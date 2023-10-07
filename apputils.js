@@ -90,6 +90,17 @@ function isValidAmount(amount) {
     return true;
 }
 
+function isValidPassword(password) {
+    if (
+        typeof password !== 'string'
+        ||
+        !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/.test(password)
+    ) {
+        return false;
+    }
+    return true;
+}
+
 module.exports = {
     isValidAmount: isValidAmount,
     logger: logger,
