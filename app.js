@@ -139,12 +139,12 @@ app.post('/register', async (req, res) => {
     }
 });
 
-app.post('/resetpass', async (req, res) => {
+app.post('/changepass', async (req, res) => {
     const page = await b.newPage();
-    const { url, username } = req.body;
+    const { url, username, pass } = req.body;
 
     try {
-        const result = await resetPass(page, url, username, loginCache.get(url).password);
+        const result = await resetPass(page, url, username, pass, loginCache.get(url).password);
         if (result.success) {
             res.json({ message: result.message });
         } else {

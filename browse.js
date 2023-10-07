@@ -98,7 +98,7 @@ async function register(page, searchPage, url, username, masterPass) {
     }
 }
 
-async function resetPass(page, url, username, masterPass) {
+async function resetPass(page, url, username, pass, masterPass) {
     try {
         let userFound = await searchUser(page, url, username);
         if (!userFound)
@@ -109,11 +109,11 @@ async function resetPass(page, url, username, masterPass) {
 
         await page.waitForFunction(() => !!document.querySelector('input[name="passcode"]'));
         await page.focus('input[name="passcode"]');
-        await page.keyboard.type(defaultPassword);
+        await page.keyboard.type(pass);
 
         await page.waitForFunction(() => !!document.querySelector('input[name="repasscode"]'));
         await page.focus('input[name="repasscode"]');
-        await page.keyboard.type(defaultPassword);
+        await page.keyboard.type(pass);
 
         await page.waitForFunction(() => !!document.querySelector('input[name="mpassword"]'));
         await page.focus('input[name="mpassword"]');
@@ -128,7 +128,7 @@ async function resetPass(page, url, username, masterPass) {
         let success = (message === 'Password Updated Successfully!');
         return {
             success: success,
-            message: success ? `Password Update Successfully to ${defaultPassword}` : message
+            message: success ? `Password Update Successfully to ${pass}` : message
         };
     } catch (error) {
         errorAsync(error.message);
