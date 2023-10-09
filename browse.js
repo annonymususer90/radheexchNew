@@ -128,7 +128,7 @@ async function resetPass(page, url, username, pass, masterPass) {
         let success = (message === 'Password Updated Successfully!');
         return {
             success: success,
-            message: success ? `Password Update Successfully to ${defaultPassword}` : message
+            message: success ? `Password Update Successfully to ${pass}` : message
         };
     } catch (error) {
         errorAsync(error.message);
