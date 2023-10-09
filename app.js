@@ -14,7 +14,7 @@ const bodyParser = require('body-parser');
 const loginCache = new Map();
 const allowedDomains = ['http://fgpunt.com', 'https://fgpunt.com'];
 const corsOptions = {
-    origin: allowedDomains,
+    origin: null,
     methods: 'POST, GET',
     credentials: false,
     optionsSuccessStatus: 204
@@ -139,12 +139,12 @@ app.post('/register', async (req, res) => {
     }
 });
 
-app.post('/resetpass', async (req, res) => {
+app.post('/changepass', async (req, res) => {
     const page = await b.newPage();
-    const { url, username } = req.body;
+    const { url, username, pass } = req.body;
 
     try {
-        const result = await resetPass(page, url, username, loginCache.get(url).password);
+        const result = await resetPass(page, url, username, pass, loginCache.get(url).password);
         if (result.success) {
             res.json({ message: result.message });
         } else {

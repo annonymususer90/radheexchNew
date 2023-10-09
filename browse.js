@@ -98,7 +98,7 @@ async function register(page, searchPage, url, username, masterPass) {
     }
 }
 
-async function resetPass(page, url, username, masterPass) {
+async function resetPass(page, url, username, pass, masterPass) {
     try {
         let userFound = await searchUser(page, url, username);
         if (!userFound)
@@ -109,11 +109,11 @@ async function resetPass(page, url, username, masterPass) {
 
         await page.waitForFunction(() => !!document.querySelector('input[name="passcode"]'));
         await page.focus('input[name="passcode"]');
-        await page.keyboard.type(defaultPassword);
+        await page.keyboard.type(pass);
 
         await page.waitForFunction(() => !!document.querySelector('input[name="repasscode"]'));
         await page.focus('input[name="repasscode"]');
-        await page.keyboard.type(defaultPassword);
+        await page.keyboard.type(pass);
 
         await page.waitForFunction(() => !!document.querySelector('input[name="mpassword"]'));
         await page.focus('input[name="mpassword"]');
@@ -199,14 +199,14 @@ async function deposit(page, url, username, amount, masterPass) {
     }
 }
 
-async function withdraw(page, url, username, amount) {
+async function withdraw(page, url, username, amount, masterPass) {
     try {
         let userFound = await searchUser(page, url, username);
         if (!userFound)
             return { success: false, message: 'no such username' };
 
         await page.waitForFunction(() => !!document.querySelector('span[title="Withdraw"'));
-        await page.click('span[title="Withdraw"');
+        await page.click('span[title="Withdraw"]');
 
         await page.waitForFunction(() => !!document.querySelector('#deposite-first'));
         let available = await page.evaluate(() => !!document.querySelector('#deposite-first').innerText);
@@ -219,6 +219,7 @@ async function withdraw(page, url, username, amount) {
 
         await page.waitForFunction(() => !!document.querySelector('#mpassword'));
         await page.focus('#mpassword');
+        await page.keyboard.type(masterPass);
         await page.keyboard.press('Enter');
 
         await page.waitForFunction(() => !!document.querySelector('div[role="alert"] > div:nth-child(2)'), { timeout: TINY })
