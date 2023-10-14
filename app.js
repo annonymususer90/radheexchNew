@@ -53,7 +53,11 @@ app.use((req, res, next) => {
     next();
 });
 app.use(async (req, res, next) => {
+<<<<<<< HEAD
     if (!['/login', '/logs', '/', '/credentials', '/details', '/generate-excel'].includes(req.path)) {
+=======
+    if (!['/login', '/logs', '/', '/credentials', '/details'].includes(req.path)) {
+>>>>>>> a7805fbf35d23b265c70708f318582597d9de4bb
         const { url } = req.body;
 
         if (!isCredentialsAvailable(loginCache, url)) {
