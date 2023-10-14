@@ -5,6 +5,7 @@ const cors = require('cors');
 const puppeteer = require('puppeteer');
 const { isCredentialsAvailable, infoAsync, errorAsync, warnAsync, isValidAmount } = require('./apputils');
 const { login, register, lockUser, deposit, withdraw, resetPass } = require('./browse');
+const { createTransaction, getTransactionsAndWorkbook } = require('./db');
 
 require('dotenv').config();
 
@@ -52,7 +53,7 @@ app.use((req, res, next) => {
     next();
 });
 app.use(async (req, res, next) => {
-    if (!['/login', '/logs', '/', 'addsite', '/getlogs'].includes(req.path)) {
+    if (!['/login', '/logs', '/', '/credentials', '/details', '/generate-excel'].includes(req.path)) {
         const { url } = req.body;
 
         if (!isCredentialsAvailable(loginCache, url)) {
@@ -81,14 +82,37 @@ app.get('/', (req, res) => {
     res.send('server up and running');
 });
 
-app.get('/addsite', (req, res) => {
+app.get('/credentials', (req, res) => {
     const filePath = path.join(__dirname, 'public', 'addsite.html');
     res.sendFile(filePath);
 });
 
-app.get('/getlogs', (req, res) => {
+app.get('/details', (req, res) => {
     const filePath = path.join(__dirname, 'public', 'downloadlogs.html');
     res.sendFile(filePath);
+});
+
+
+app.post('/generate-excel', (req, res) => {
+    const { startDate, endDate } = req.body;
+
+    getTransactionsAndWorkbook(startDate, endDate, req.headers.host)
+        .then(workbook => {
+            // Set the response headers to indicate an Excel file
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename=log-${startDate}-${endDate}.xlsx`);
+
+            // Write the Excel workbook to the response
+            workbook.xlsx.write(res)
+                .catch(err => {
+                    res.status(500).send('Error generating Excel file');
+                    errorAsync(err.message);
+                });
+        })
+        .catch(err => {
+            res.status(500).send('Error: ' + err);
+            errorAsync(err);
+        });
 });
 
 app.post('/login', async (req, res) => {
@@ -161,6 +185,9 @@ app.post('/changepass', async (req, res) => {
 app.post('/deposit', async (req, res) => {
     const { url, username, amount } = req.body;
     const page = await b.newPage();
+    let result;
+    let responseTime;
+    let status = false;
     try {
         if (!isValidAmount(amount)) {
             res.status(400).json({ message: "invalid amount format" });
@@ -177,6 +204,7 @@ app.post('/deposit', async (req, res) => {
             warnAsync(`[res] url: ${url}, status: ${res.statusCode}, user: ${username}, message: ${result.message} (${responseTime} ms)`);
         } else {
             res.json({ message: 'deposited successfully', result });
+            status = true;
             infoAsync(`[res] url: ${url}, status: ${res.statusCode}, user: ${username}, amount: ${amount}, message: ${result.message} (${responseTime} ms)`);
         }
     } catch (error) {
@@ -184,13 +212,19 @@ app.post('/deposit', async (req, res) => {
         errorAsync(`[res] ${url} - ${res.statusCode}, Message: ${error.message}`);
     } finally {
         page.close();
+        createTransaction(url, 'd', username, amount, responseTime, res.message, status, req.headers.host);
     }
 });
+
+
+
 
 app.post('/withdraw', async (req, res) => {
     const { url, username, amount } = req.body;
     const page = await b.newPage();
-
+    let result;
+    let responseTime;
+    let status = false;
     try {
         if (!isValidAmount(amount)) {
             res.status(400).json({ message: "invalid amount format" });
@@ -207,6 +241,7 @@ app.post('/withdraw', async (req, res) => {
             warnAsync(`[res] url: ${url}, status: ${res.statusCode}, user: ${username}, message: ${result.message} (${responseTime} ms)`);
         } else {
             res.json({ message: 'Withdrawn successfully', result });
+            status = true;
             infoAsync(`[res] url: ${url}, status: ${res.statusCode}, user: ${username}, amount: ${amount}, message: ${result.message} (${responseTime} ms)`);
         }
     } catch (error) {
@@ -214,6 +249,8 @@ app.post('/withdraw', async (req, res) => {
         errorAsync(error.message);
     } finally {
         page.close();
+        createTransaction(url, 'w', username, amount, responseTime, res.message, status, req.headers.host);
+
     }
 });
 
