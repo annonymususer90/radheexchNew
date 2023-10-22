@@ -2,6 +2,7 @@ const { defaultPassword } = require('./constant');
 const { infoAsync, errorAsync } = require('./apputils');
 
 const TINY = 3000;
+const TINY_DECADE = 10000;
 const LOW = 60000;
 const MEDIUM = 90000;
 const HIGH = 120000;
@@ -40,7 +41,15 @@ async function login(page, url, username, password) {
     const navPromise = page.waitForNavigation({ timeout: HIGH });
     await page.click('div.login > div:nth-child(2) button');
 
-    await navPromise;
+    await page.waitForFunction(() => !!document.querySelector('div[role="alert"] > div:nth-child(2)'), { timeout: 3 * TINY_DECADE })
+        .catch(err => err.message);
+    let message = await page.evaluate(() => document.querySelector('div[role="alert"] > div:nth-child(2)').innerText)
+        .catch(err => '');
+
+    if (message.includes('invalid'))
+        throw new Error(message);
+
+    // await navPromise;
 
     infoAsync(`login successful, url: ${url}`);
 }
@@ -56,38 +65,38 @@ async function register(page, searchPage, url, username, masterPass) {
             return { success: false, message: 'username already exist' };
 
         await page.waitForFunction(() => !!document.querySelector('select[name="account_type"]'), { timeout: TINY })
-            .catch(err => console.log('1' + err.message));
+            .catch(err => erro('1: ' + err.message));
         await page.focus('select[name="account_type"]');
         await page.keyboard.press('ArrowDown');
 
         await page.waitForFunction(() => !!document.querySelector('input[name="client_name"]'), { timeout: TINY })
-            .catch(err => console.log('2' + err.message));
+            .catch(err => erro('2: ' + err.message));
         await page.focus('input[name="client_name"]');
         await page.keyboard.type(username);
 
         await page.waitForFunction(() => !!document.querySelector('#usrid'), { timeout: TINY })
-            .catch(err => console.log('3' + err.message));
+            .catch(err => erro('3: ' + err.message));
         await page.focus('#usrid');
         await page.keyboard.type(username);
 
         await page.waitForFunction(() => !!document.querySelector('#password'), { timeout: TINY })
-            .catch(err => console.log('4' + err.message));
+            .catch(err => erro('4: ' + err.message));
         await page.focus('#password');
         await page.keyboard.type(defaultPassword);
 
         await page.waitForFunction(() => !!document.querySelector('#repassword'), { timeout: TINY })
-            .catch(err => console.log('5' + err.message));
+            .catch(err => erro('5: ' + err.message));
         await page.focus('#repassword');
         await page.keyboard.type(defaultPassword);
 
         await page.waitForFunction(() => !!document.querySelector('input[name="master_password"]'), { timeout: TINY })
-            .catch(err => console.log('6' + err.message));
+            .catch(err => erro('6: ' + err.message));
         await page.focus('input[name="master_password"]');
         await page.keyboard.type(masterPass);
         await page.keyboard.press('Enter');
 
         await page.waitForFunction(() => !!document.querySelector('div[role="alert"] > div:nth-child(2)'), { timeout: TINY })
-            .catch(err => console.log('7' + err.message));
+            .catch(err => erro('7: ' + err.message));
         let message = await page.evaluate(() => document.querySelector('div[role="alert"] > div:nth-child(2)').innerText);
 
         return { success: true, message: message };
@@ -191,7 +200,7 @@ async function deposit(page, url, username, amount, masterPass) {
         let message = await page.evaluate(() => document.querySelector('div[role="alert"] > div:nth-child(2)').innerText);
 
         return {
-            success: message.includes('successfully!') ? true : false,
+            success: message.includes('successfully!') && !message.includes('not'),
             message: message
         };
     } catch (error) {
@@ -217,6 +226,24 @@ async function withdraw(page, url, username, amount, masterPass) {
         await page.focus('input[name="amount"]');
         await page.keyboard.type(amount);
 
+        let toThrow = false;
+        try {
+            await page.waitForFunction(
+                () => !!document.querySelector('#mywithdraw > div.modal-dialog.modal-dialog-scrollable > div > div.modal-body.lst-pop.pt-0 > div:nth-child(7) > div > span'),
+                { timeout: TINY }
+            );
+
+            let innerText = await page.$eval(
+                '#mywithdraw > div.modal-dialog.modal-dialog-scrollable > div > div.modal-body.lst-pop.pt-0 > div:nth-child(7) > div > span',
+                (el) => el.innerText
+            );
+            toThrow = true;
+            throw new Error(innerText);
+        } catch (err) {
+            if (toThrow)
+                throw err;
+        }
+
         await page.waitForFunction(() => !!document.querySelector('#mpassword'));
         await page.focus('#mpassword');
         await page.keyboard.type(masterPass);
@@ -226,7 +253,7 @@ async function withdraw(page, url, username, amount, masterPass) {
         let message = await page.evaluate(() => document.querySelector('div[role="alert"] > div:nth-child(2)').innerText);
 
         return {
-            success: message.includes('successfully!') ? true : false,
+            success: message.includes('successfully!') && !message.includes('not'),
             message: message
         };
     } catch (error) {

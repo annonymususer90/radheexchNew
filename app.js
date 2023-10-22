@@ -6,16 +6,17 @@ const puppeteer = require('puppeteer');
 const { isCredentialsAvailable, infoAsync, errorAsync, warnAsync, isValidAmount } = require('./apputils');
 const { login, register, lockUser, deposit, withdraw, resetPass } = require('./browse');
 const { createTransaction, getTransactionsAndWorkbook } = require('./db');
+const constant = require('./constant');
+const bodyParser = require('body-parser');
 
 require('dotenv').config();
 
 const app = express();
 const PORT = 4000;
-const bodyParser = require('body-parser');
 const loginCache = new Map();
 const allowedDomains = ['http://fgpunt.com', 'https://fgpunt.com'];
 const corsOptions = {
-    origin: null,
+    origin: allowedDomains,
     methods: 'POST, GET',
     credentials: false,
     optionsSuccessStatus: 204
@@ -64,7 +65,7 @@ app.use(async (req, res, next) => {
         let pageUrl = await loginCache.get(url).page.url();
 
         if (!pageUrl.includes(`${url}/dashboard`)) {
-            await loginCache.get(url)?.page.close();
+            // await loginCache.get(url)?.page.close();
 
             if (pageUrl.includes('auth') || pageUrl === url) {
                 loginCache.get(url).isBusy = true;
@@ -121,25 +122,32 @@ app.post('/login', async (req, res) => {
     try {
 
         if (isCredentialsAvailable(loginCache, url)) {
-            return res.status(200).json({ message: 'admin already loggedin' });
-        } else {
-            const page = await b.newPage();
-            loginCache.set(url, {
-                page: page,
-                username: username,
-                password: password,
-                isBusy: false
-            });
+            let pageUrl = await loginCache.get(url).page.url();
 
-            loginCache.get(url).isBusy = true;
-            await login(page, url, username, password);
-            loginCache.get(url).isBusy = false;
+            if (pageUrl.includes(`${url}/dashboard`)) {
+                return res.status(200).json({ message: 'admin already loggedin' });
+            }
 
-            res.status(200).json({ message: 'login success to url ' + url });
         }
+
+        loginCache.set(url, {
+            page: loginCache.has(url)
+                ? loginCache.get(url).page
+                : await b.newPage(),
+            username: username,
+            password: password,
+            isBusy: true
+        });
+
+        await login(loginCache.get(url).page, url, username, password);
+
+        res.status(200).json({ message: 'login success to url ' + url });
+
     } catch (ex) {
         errorAsync(ex.message);
-        res.status(400).json({ message: 'login unsuccess to ' + url });
+        res.status(400).json({ message: ex.message });
+    } finally {
+        loginCache.get(url).isBusy = false;
     }
 });
 
@@ -150,10 +158,16 @@ app.post('/register', async (req, res) => {
 
     try {
         const result = await register(page, searchPage, url, username, loginCache.get(url).password);
+
         if (result.success == false)
             res.status(400).json({ message: 'User registration not successful', result });
         else
-            res.json({ message: 'User registration successful', result });
+            res.json({
+                message: 'User registration successful',
+                result,
+                defaultPassword: constant.defaultPassword
+            });
+
     } catch (error) {
         res.status(500).json({ error: 'Internal server error' });
         errorAsync(`request responded with error: ${error.message}`);
