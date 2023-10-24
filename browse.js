@@ -8,7 +8,7 @@ const MEDIUM = 90000;
 const HIGH = 120000;
 
 async function searchUser(page, url, username) {
-    await page.goto(`${url}/clients`, { timeout: 9000 });
+    await page.goto(`${url}/clients`, { timeout: HIGH });
     await page.waitForFunction(
         () => !!document.querySelector('#root > div > div > div > div > div > div > div > h5 > div > div > div > div > input')
     );

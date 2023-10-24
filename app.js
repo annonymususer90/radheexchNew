@@ -230,9 +230,6 @@ app.post('/deposit', async (req, res) => {
     }
 });
 
-
-
-
 app.post('/withdraw', async (req, res) => {
     const { url, username, amount } = req.body;
     const page = await b.newPage();
@@ -249,7 +246,7 @@ app.post('/withdraw', async (req, res) => {
         const startTime = new Date();
         const result = await withdraw(page, url, username, amount, loginCache.get(url).password);
         const endTime = new Date();
-        const responseTime = endTime - startTime;
+        responseTime = endTime - startTime;
         if (result.success == false) {
             res.status(400).json({ message: 'withdraw not successful', result });
             warnAsync(`[res] url: ${url}, status: ${res.statusCode}, user: ${username}, message: ${result.message} (${responseTime} ms)`);
