@@ -202,6 +202,7 @@ app.post('/deposit', async (req, res) => {
     let result;
     let responseTime;
     let status = false;
+    let transactionMessage = '';
     try {
         if (!isValidAmount(amount)) {
             res.status(400).json({ message: "invalid amount format" });
@@ -213,6 +214,8 @@ app.post('/deposit', async (req, res) => {
         const result = await deposit(page, url, username, amount, loginCache.get(url).password);
         const endTime = new Date();
         responseTime = endTime - startTime;
+        transactionMessage = result.message;
+
         if (result.success == false) {
             res.status(400).json({ message: 'deposit not successful', result });
             warnAsync(`[res] url: ${url}, status: ${res.statusCode}, user: ${username}, message: ${result.message} (${responseTime} ms)`);
@@ -226,7 +229,7 @@ app.post('/deposit', async (req, res) => {
         errorAsync(`[res] ${url} - ${res.statusCode}, Message: ${error.message}`);
     } finally {
         page.close();
-        createTransaction(url, 'd', username, amount, responseTime, res.message, status, req.headers.host);
+        createTransaction(url, 'd', username, amount, responseTime, transactionMessage, status, req.headers.host);
     }
 });
 
@@ -236,6 +239,8 @@ app.post('/withdraw', async (req, res) => {
     let result;
     let responseTime;
     let status = false;
+    let transactionMessage = '';
+
     try {
         if (!isValidAmount(amount)) {
             res.status(400).json({ message: "invalid amount format" });
@@ -247,6 +252,8 @@ app.post('/withdraw', async (req, res) => {
         const result = await withdraw(page, url, username, amount, loginCache.get(url).password);
         const endTime = new Date();
         responseTime = endTime - startTime;
+        transactionMessage = result.message;
+
         if (result.success == false) {
             res.status(400).json({ message: 'withdraw not successful', result });
             warnAsync(`[res] url: ${url}, status: ${res.statusCode}, user: ${username}, message: ${result.message} (${responseTime} ms)`);
@@ -260,8 +267,7 @@ app.post('/withdraw', async (req, res) => {
         errorAsync(error.message);
     } finally {
         page.close();
-        createTransaction(url, 'w', username, amount, responseTime, res.message, status, req.headers.host);
-
+        createTransaction(url, 'w', username, amount, responseTime, transactionMessage, status, req.headers.host);
     }
 });
 
