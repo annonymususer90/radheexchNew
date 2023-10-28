@@ -46,7 +46,7 @@ async function login(page, url, username, password) {
     let message = await page.evaluate(() => document.querySelector('div[role="alert"] > div:nth-child(2)').innerText)
         .catch(err => '');
 
-    if (message.includes('invalid')) {
+    if (message.includes('invalid') || message.includes('not')) {
         throw new Error(message);
     }
 

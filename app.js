@@ -36,7 +36,7 @@ puppeteer.launch({
         process.env.NODE_ENV === "production"
             ? process.env.PUPPETEER_EXECUTABLE_PATH
             : puppeteer.executablePath(),
-    headless: true,
+    headless: false,
     timeout: 120000,
     defaultViewport: {
         width: 1366,
