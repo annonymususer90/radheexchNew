@@ -38,7 +38,7 @@ async function login(page, url, username, password) {
     await page.keyboard.type(password);
 
     await page.waitForFunction(() => !!document.querySelector('div.login > div:nth-child(2) button'));
-    const navPromise = page.waitForNavigation({ timeout: HIGH });
+    // const navPromise = page.waitForNavigation({ timeout: HIGH });
     await page.click('div.login > div:nth-child(2) button');
 
     await page.waitForFunction(() => !!document.querySelector('div[role="alert"] > div:nth-child(2)'), { timeout: 3 * TINY_DECADE })
@@ -46,10 +46,10 @@ async function login(page, url, username, password) {
     let message = await page.evaluate(() => document.querySelector('div[role="alert"] > div:nth-child(2)').innerText)
         .catch(err => '');
 
-    if (message.includes('invalid'))
+    if (message.includes('invalid')) {
         throw new Error(message);
+    }
 
-    // await navPromise;
 
     infoAsync(`login successful, url: ${url}`);
 }
